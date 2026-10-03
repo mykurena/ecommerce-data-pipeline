@@ -124,9 +124,9 @@ dbt docs generate && dbt docs serve
 
 ## Roadmap
 
-- [ x ] Repository setup, `.gitignore`, `.env.example`, `requirements.txt`
-- [ x ] Synthetic data generators (ad spend, marketplace feed)
-- [ x ] Python ingestion into BigQuery `raw`
+- [x] Repository setup, `.gitignore`, `.env.example`, `requirements.txt`
+- [x] Synthetic data generators (ad spend, marketplace feed)
+- [x] Python ingestion into BigQuery `raw`
 - [x] dbt staging models and tests
 - [x] dbt intermediate and marts models
 - [x] n8n alert workflow (Docker)
