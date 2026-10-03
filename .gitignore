@@ -17,3 +17,5 @@ dbt_project/dbt_packages/
 dbt_project/logs/
 
 desktop.ini
+
+dbt_project/.user.yml
