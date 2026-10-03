@@ -130,9 +130,9 @@ dbt docs generate && dbt docs serve
 - [x] dbt staging models and tests
 - [x] dbt intermediate and marts models
 - [x] n8n alert workflow (Docker)
-- [ ] GitHub Actions schedule
-- [ ] Architecture diagram and data dictionary in `docs/`
-- [ ] Screenshots of dbt docs lineage and n8n workflow
+- [x] GitHub Actions schedule
+- [x] Architecture diagram and data dictionary in `docs/`
+- [x] Screenshots of dbt docs lineage and n8n workflow
 
 ## Design decisions and limitations
 
