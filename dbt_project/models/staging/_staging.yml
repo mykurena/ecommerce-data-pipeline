@@ -1,0 +1,82 @@
+version: 2
+
+sources:
+  - name: raw
+    database: "{{ env_var('GCP_PROJECT_ID') }}"
+    schema: raw
+    tables:
+      - name: olist_orders
+      - name: olist_customers
+      - name: olist_order_items
+      - name: olist_order_payments
+      - name: olist_products
+      - name: olist_sellers
+      - name: product_category_name_translation
+      - name: ad_spend
+
+models:
+  - name: stg_olist__orders
+    description: One row per order, with timestamps cast from raw strings.
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_olist__customers')
+              field: customer_id
+      - name: order_status
+        tests:
+          - accepted_values:
+              values: [created, approved, invoiced, processing, shipped, delivered, unavailable, canceled]
+
+  - name: stg_olist__customers
+    description: One row per customer_id (one per order). customer_unique_id identifies the real person.
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+
+  - name: stg_olist__order_items
+    description: One row per item in an order.
+    columns:
+      - name: order_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_olist__orders')
+              field: order_id
+      - name: price
+        tests: [not_null]
+
+  - name: stg_olist__order_payments
+    description: One row per payment of an order.
+    columns:
+      - name: order_id
+        tests: [not_null]
+      - name: payment_value
+        tests: [not_null]
+
+  - name: stg_olist__products
+    description: Products with English category names.
+    columns:
+      - name: product_id
+        tests: [unique, not_null]
+
+  - name: stg_olist__sellers
+    description: One row per seller.
+    columns:
+      - name: seller_id
+        tests: [unique, not_null]
+
+  - name: stg_ad_spend
+    description: Daily ad spend by platform and campaign (synthetic).
+    columns:
+      - name: ad_record_id
+        tests: [unique, not_null]
+      - name: spend_brl
+        tests: [not_null]
+      - name: platform
+        tests:
+          - accepted_values:
+              values: [meta_ads, google_ads]

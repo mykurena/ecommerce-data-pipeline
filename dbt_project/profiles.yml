@@ -1,0 +1,13 @@
+# Uses your gcloud login (oauth). No secrets stored in this file.
+# Set GCP_PROJECT_ID (and BQ_LOCATION if your dataset is not in US) before running dbt.
+ecommerce_pipeline:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      dataset: analytics
+      location: "{{ env_var('BQ_LOCATION', 'US') }}"
+      threads: 4
+      timeout_seconds: 300
