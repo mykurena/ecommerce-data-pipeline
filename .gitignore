@@ -1,0 +1,19 @@
+# Secrets
+.env
+*.json.key
+service-account*.json
+
+# Data (regenerate or download, do not commit)
+data/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# dbt
+dbt_project/target/
+dbt_project/dbt_packages/
+dbt_project/logs/
+
+desktop.ini
