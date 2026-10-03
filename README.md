@@ -129,7 +129,7 @@ dbt docs generate && dbt docs serve
 - [ x ] Python ingestion into BigQuery `raw`
 - [x] dbt staging models and tests
 - [x] dbt intermediate and marts models
-- [ ] n8n alert workflow (Docker)
+- [x] n8n alert workflow (Docker)
 - [ ] GitHub Actions schedule
 - [ ] Architecture diagram and data dictionary in `docs/`
 - [ ] Screenshots of dbt docs lineage and n8n workflow
@@ -145,3 +145,7 @@ dbt docs generate && dbt docs serve
 **Macarena Rios**: Geographic and Environmental Engineer, MSc student in Artificial Intelligence Sciences (UNA). Moving from GIS and data science toward data engineering.
 
 [LinkedIn](https://www.linkedin.com/) · [GitHub](https://github.com/)
+
+## Data quality monitoring
+
+Bad data is detected automatically and sent as a Telegram alert. See [docs/monitoring.md](docs/monitoring.md) for the demo and how to reproduce it.
