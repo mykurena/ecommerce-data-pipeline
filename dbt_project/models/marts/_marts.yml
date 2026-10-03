@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: fct_sales
+    description: Daily sales (orders, revenue, average order value). Excludes canceled and unavailable orders.
+    columns:
+      - name: sales_date
+        tests: [unique, not_null]
+      - name: orders
+        tests: [not_null]
+      - name: items_revenue
+        tests: [not_null]
+
+  - name: dim_customers
+    description: One row per real customer with order count, spend and repeat-customer flag.
+    columns:
+      - name: customer_unique_id
+        tests: [unique, not_null]
+      - name: order_count
+        tests: [not_null]
+
+  - name: fct_ad_performance
+    description: Daily ad spend, impressions, clicks, CTR and CPC by platform and campaign.
+    columns:
+      - name: ad_performance_id
+        tests: [unique, not_null]
+      - name: platform
+        tests:
+          - accepted_values:
+              values: [meta_ads, google_ads]

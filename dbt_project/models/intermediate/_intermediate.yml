@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: int_orders__items
+    description: Order items aggregated to one row per order.
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
+
+  - name: int_orders__payments
+    description: Payments aggregated to one row per order.
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
+
+  - name: int_orders__enriched
+    description: One row per order with item totals, payment totals and a late-delivery flag.
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
