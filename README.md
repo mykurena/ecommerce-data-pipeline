@@ -1,5 +1,5 @@
 # ecommerce-data-pipeline
-
+![dbt CI](https://github.com/mykurena/ecommerce-data-pipeline/actions/workflows/dbt-ci.yml/badge.svg)
 End-to-end ELT pipeline for a multi-channel e-commerce business: Python ingestion → BigQuery → dbt Core models and tests → automated data-quality alerts with n8n.
 
 > **Status:** 🚧 In progress. See the [roadmap](#roadmap) for what is done and what is next.
