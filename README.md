@@ -1,8 +1,10 @@
 # ecommerce-data-pipeline
+
 ![dbt CI](https://github.com/mykurena/ecommerce-data-pipeline/actions/workflows/dbt-ci.yml/badge.svg)
+
 End-to-end ELT pipeline for a multi-channel e-commerce business: Python ingestion → BigQuery → dbt Core models and tests → automated data-quality alerts with n8n.
 
-> **Status:** 🚧 In progress. See the [roadmap](#roadmap) for what is done and what is next.
+> **Status:** the pipeline works end to end (ingestion, modeling, testing, alerting, CI). Scheduled execution against BigQuery is not set up yet; see the [roadmap](#roadmap).
 
 ## Business problem
 
@@ -23,16 +25,16 @@ flowchart LR
     E --> F[dbt Core<br/>staging → intermediate → marts]
     F --> G[(BigQuery<br/>marts)]
     F --> H[dbt tests]
-    H -->|failure| I[n8n workflow]
-    I --> J[Telegram / Slack / Email alert]
-    K[GitHub Actions<br/>scheduled run] --> F
+    H -->|results summary| I[n8n webhook]
+    I -->|if any test failed| J[Telegram alert]
+    K[GitHub Actions CI] -.->|dbt parse on every push| F
 ```
 
 ## Data sources
 
 | Source | Type | Purpose |
 |---|---|---|
-| [Olist Brazilian E-Commerce](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) | Public dataset (CSV) | Orders, customers, products, payments, reviews |
+| [Olist Brazilian E-Commerce](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) | Public dataset (CSV) | Orders, customers, products, payments, sellers |
 | Ad spend (Meta / Google Ads) | Synthetic, generated with Python | Spend, impressions, clicks by campaign and day |
 | Marketplace feed | Synthetic, API-style JSON | Second sales channel to practice multi-source integration |
 
@@ -42,47 +44,58 @@ flowchart LR
 - **Google BigQuery** (sandbox / free tier): data warehouse
 - **dbt Core**: transformation, testing, documentation
 - **n8n** (self-hosted with Docker): alerting and workflow automation
-- **GitHub Actions**: scheduled runs and CI
+- **Telegram**: alert channel
+- **GitHub Actions**: CI that validates the dbt project on every push
 
 ## Repository structure
 
 ```
 ecommerce-data-pipeline/
-├── ingestion/          # Python scripts: load raw data into BigQuery
+├── ingestion/          # Load raw data into BigQuery
 ├── data_generation/    # Synthetic ad spend and marketplace data
 ├── dbt_project/
 │   ├── models/
 │   │   ├── staging/
 │   │   ├── intermediate/
 │   │   └── marts/
-│   └── tests/
-├── n8n/                # Exported workflows (.json)
-├── .github/workflows/  # Scheduled dbt run and test
-├── docs/               # Architecture diagram, data dictionary
+│   └── tests/          # Custom (singular) tests
+├── monitoring/         # Runs dbt tests and sends the summary to n8n
+├── n8n/                # Docker setup and exported alert workflow
+├── .github/workflows/  # CI: dbt parse and Python compile checks
+├── docs/               # Data dictionary, monitoring demo, screenshots
 └── README.md
 ```
 
-## Data models (planned)
+## Data models
 
-- **Staging:** one model per raw table, with renamed columns, casted types and no business logic.
-- **Intermediate:** joins and calculations reused downstream (e.g. order items with payments).
+- **Staging:** one model per source table, with casted types and no business logic.
+- **Intermediate:** order items and payments aggregated per order (`int_orders__enriched`).
 - **Marts:**
-  - `fct_sales`: revenue, orders and average order value by day and channel
-  - `dim_customers`: customer-level metrics
-  - `fct_ad_performance`: spend, clicks and cost per click by campaign
+  - `fct_sales`: daily orders and revenue for the Olist channel
+  - `fct_sales_by_channel`: daily orders and revenue for Olist and the marketplace feed
+  - `dim_customers`: one row per real customer, with order count, spend and repeat-customer flag
+  - `fct_ad_performance`: daily spend, clicks, CTR and CPC by platform and campaign
 
-## Data quality
+Column-level details are in the [data dictionary](docs/data_dictionary.md).
 
-- dbt generic tests: `unique`, `not_null`, `accepted_values`, `relationships`
-- Custom tests for business rules (e.g. no negative revenue, no orders without items)
-- Freshness checks on raw tables
-- Failures trigger an n8n workflow that sends an alert with the failing test and model
+### Lineage
+
+![dbt lineage](docs/dbt_lineage.png)
+
+## Data quality and monitoring
+
+- dbt generic tests (`unique`, `not_null`, `accepted_values`, `relationships`) across all layers
+- A custom test for a business rule: ad spend can never be negative
+- `monitoring/run_dbt_tests.py` runs the tests and sends a summary to an n8n webhook
+- n8n sends a Telegram alert only when at least one test fails, naming the failing tests and models
+
+The demo injects duplicated, empty and negative ad spend on purpose and shows the alert. See [docs/monitoring.md](docs/monitoring.md).
 
 ## Getting started
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.10 to 3.12 (tested with 3.12; dbt does not support 3.14 yet)
 - A Google Cloud project with BigQuery enabled (sandbox mode is enough)
 - Docker (for n8n)
 - A Kaggle account to download the Olist dataset
@@ -90,14 +103,15 @@ ecommerce-data-pipeline/
 ### Setup
 
 ```bash
-git clone https://github.com/<your-user>/ecommerce-data-pipeline.git
+git clone https://github.com/mykurena/ecommerce-data-pipeline.git
 cd ecommerce-data-pipeline
 
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+pip install dbt-bigquery
 
-cp .env.example .env             # fill in your GCP project and dataset names
+cp .env.example .env             # fill in your GCP project ID
 ```
 
 Authenticate with Google Cloud and create the raw dataset:
@@ -107,45 +121,58 @@ gcloud auth application-default login
 bq mk --dataset <your-project>:raw
 ```
 
+Download the Olist CSV files from Kaggle into `data/olist/`.
+
 > Never commit credentials. `.env` and service account keys are listed in `.gitignore`.
 
 ### Run
 
 ```bash
+# 1. Generate synthetic data
 python data_generation/generate_ad_spend.py
-python ingestion/load_to_bigquery.py
+python data_generation/generate_marketplace_orders.py
 
+# 2. Load everything into BigQuery (dataset: raw)
+python ingestion/load_to_bigquery.py
+python ingestion/load_marketplace.py
+
+# 3. Transform and test with dbt
+export GCP_PROJECT_ID=<your-project>      # PowerShell: $env:GCP_PROJECT_ID="<your-project>"
 cd dbt_project
-dbt deps
 dbt run
 dbt test
-dbt docs generate && dbt docs serve
+dbt docs generate && dbt docs serve --port 8081
 ```
+
+To run the alerting demo, see [docs/monitoring.md](docs/monitoring.md).
 
 ## Roadmap
 
 - [x] Repository setup, `.gitignore`, `.env.example`, `requirements.txt`
 - [x] Synthetic data generators (ad spend, marketplace feed)
 - [x] Python ingestion into BigQuery `raw`
-- [x] dbt staging models and tests
-- [x] dbt intermediate and marts models
-- [x] n8n alert workflow (Docker)
-- [x] GitHub Actions schedule
-- [x] Architecture diagram and data dictionary in `docs/`
-- [x] Screenshots of dbt docs lineage and n8n workflow
+- [x] dbt staging, intermediate and marts models
+- [x] dbt tests, including a custom business-rule test
+- [x] n8n alert workflow (Docker) with Telegram notifications
+- [x] GitHub Actions CI: validate the dbt project on every push
+- [x] Documentation: data dictionary, monitoring demo, lineage and workflow screenshots
+- [ ] Scheduled `dbt build` against BigQuery (GitHub Actions with a service account)
+- [ ] Source freshness checks
+- [ ] Monitor the ingestion step too, not only `dbt test`
 
 ## Design decisions and limitations
 
 - **Fivetran is not used.** It is a paid tool, so the ingestion layer is written in Python and plays the role a managed connector would. The pattern (extract, land raw, transform in the warehouse) is the same.
-- **Scheduling uses GitHub Actions instead of a heavier orchestrator**, which is enough for the size of this project.
+- **No orchestrator.** CI validates the project but nothing runs the pipeline on a schedule yet. Scheduling would need a service account stored as a GitHub secret.
+- **Raw data is loaded as text.** Types are cast in the staging layer, so the raw layer stays faithful to the source.
 - **Ad spend and marketplace data are synthetic.** They are generated to resemble real exports, not taken from a real business.
+- **n8n runs locally.** Alerts only fire while the Docker container is running.
+- **BigQuery sandbox** deletes tables after 60 days. Re-running the ingestion scripts recreates them.
+- **Olist reviews and geolocation** are loaded into `raw` but not modeled.
+- **`fct_sales` covers Olist only.** `fct_sales_by_channel` combines both channels.
 
 ## Author
 
 **Macarena Rios**: Geographic and Environmental Engineer, MSc student in Artificial Intelligence Sciences (UNA). Moving from GIS and data science toward data engineering.
 
-[LinkedIn](https://www.linkedin.com/) · [GitHub](https://github.com/)
-
-## Data quality monitoring
-
-Bad data is detected automatically and sent as a Telegram alert. See [docs/monitoring.md](docs/monitoring.md) for the demo and how to reproduce it.
+[LinkedIn](https://www.linkedin.com/in/macarena-rios-zaldivar-30b375201) · [GitHub](https://github.com/mykurena)

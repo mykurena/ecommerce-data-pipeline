@@ -1,0 +1,23 @@
+version: 2
+
+sources:
+  - name: raw_marketplace
+    database: "{{ env_var('GCP_PROJECT_ID') }}"
+    schema: raw
+    tables:
+      - name: marketplace_orders
+
+models:
+  - name: stg_marketplace__orders
+    description: One row per marketplace order (synthetic second sales channel).
+    columns:
+      - name: marketplace_order_id
+        tests: [unique, not_null]
+      - name: order_date
+        tests: [not_null]
+      - name: gross_amount_brl
+        tests: [not_null]
+      - name: status
+        tests:
+          - accepted_values:
+              values: [delivered, shipped, cancelled, returned]

@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: fct_sales_by_channel
+    description: Daily orders and revenue by channel (olist and marketplace). Excludes canceled, unavailable and returned orders.
+    columns:
+      - name: sales_id
+        tests: [unique, not_null]
+      - name: channel
+        tests:
+          - accepted_values:
+              values: [olist, marketplace]
+      - name: orders
+        tests: [not_null]
+      - name: gross_revenue
+        tests: [not_null]
